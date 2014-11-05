@@ -29,6 +29,21 @@
 #include "FWCore/Framework/interface/MakerMacros.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+
+#include "DataFormats/TrackReco/interface/Track.h"
+#include "DataFormats/TrackReco/interface/TrackFwd.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+
+#include "FWCore/ServiceRegistry/interface/Service.h"
+#include "CommonTools/UtilAlgos/interface/TFileService.h"
+#include "TProfile.h"
+
+
+#include <DataFormats/Math/interface/deltaR.h>
+#include <DataFormats/JetReco/interface/PFJet.h>
+#include <DataFormats/JetReco/interface/GenJet.h>
+#include <DataFormats/JetReco/interface/GenJetCollection.h>
+
 //
 // class declaration
 //
@@ -52,6 +67,8 @@ class DemoAnalyzer : public edm::EDAnalyzer {
       virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&);
 
       // ----------member data ---------------------------
+
+  TProfile *demohisto;
 };
 
 //
@@ -68,7 +85,9 @@ class DemoAnalyzer : public edm::EDAnalyzer {
 DemoAnalyzer::DemoAnalyzer(const edm::ParameterSet& iConfig)
 
 {
-   //now do what ever initialization is needed
+   
+  edm::Service<TFileService> fs;
+  demohisto = fs->make<TProfile>("recogen" , "recogen" , 20 , 0 , 100 );
 
 }
 
@@ -90,7 +109,22 @@ DemoAnalyzer::~DemoAnalyzer()
 void
 DemoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
+   using namespace edm;
 
+Handle<reco::PFJetCollection> recojets;
+iEvent.getByLabel("ak5PFJets", recojets); 
+
+Handle<reco::GenJetCollection> genjets;
+iEvent.getByLabel("ak5GenJets", genjets); 
+
+if (genjets->size() > 0
+    && genjets->at(0).pt() > 20
+    && recojets->at(0).pt() > 12
+    && deltaR(genjets->at(0), recojets->at(0)) < 0.25
+    )
+{
+    demohisto->Fill(genjets->at(0).pt(), recojets->at(0).pt()/genjets->at(0).pt());
+}
 #ifdef THIS_IS_AN_EVENT_EXAMPLE
    Handle<ExampleData> pIn;
    iEvent.getByLabel("example",pIn);
