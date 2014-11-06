@@ -117,13 +117,19 @@ iEvent.getByLabel("ak5PFJets", recojets);
 Handle<reco::GenJetCollection> genjets;
 iEvent.getByLabel("ak5GenJets", genjets); 
 
-if (genjets->size() > 0
-    && genjets->at(0).pt() > 20
-    && recojets->at(0).pt() > 12
-    && deltaR(genjets->at(0), recojets->at(0)) < 0.25
-    )
+for (unsigned int r = 0; r < recojets->size(); r++)
 {
-    demohisto->Fill(genjets->at(0).pt(), recojets->at(0).pt()/genjets->at(0).pt());
+    for (unsigned int g = 0; g < genjets->size(); g++)
+    {
+        if (genjets->at(g).pt() > 20
+            && recojets->at(r).pt() > 12
+            && deltaR(genjets->at(g), recojets->at(r)) < 0.25
+        )
+        {
+            demohisto->Fill(genjets->at(g).pt(), recojets->at(r).pt()/genjets->at(g).pt());
+            break;
+        }
+    }
 }
 #ifdef THIS_IS_AN_EVENT_EXAMPLE
    Handle<ExampleData> pIn;
