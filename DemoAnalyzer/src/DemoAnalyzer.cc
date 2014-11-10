@@ -116,7 +116,7 @@ Handle<reco::PFJetCollection> recojets;
 iEvent.getByLabel(jetCollection.c_str(), recojets);
 
 Handle<reco::GenJetCollection> genjets;
-iEvent.getByLabel("ak5GenJets", genjets); 
+iEvent.getByLabel("ak5GenJetsNoNu", genjets);
 
 for (unsigned int r = 0; r < recojets->size(); r++)
 {
