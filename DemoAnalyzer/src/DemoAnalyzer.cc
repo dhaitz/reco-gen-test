@@ -68,7 +68,9 @@ class DemoAnalyzer : public edm::EDAnalyzer {
 
       // ----------member data ---------------------------
 
-  TProfile *demohisto;
+  TProfile *histo;
+  std::string jetCollection;
+
 };
 
 //
@@ -82,12 +84,11 @@ class DemoAnalyzer : public edm::EDAnalyzer {
 //
 // constructors and destructor
 //
-DemoAnalyzer::DemoAnalyzer(const edm::ParameterSet& iConfig)
-
+DemoAnalyzer::DemoAnalyzer(const edm::ParameterSet& iConfig):
+jetCollection(iConfig.getParameter<edm::InputTag>("jetCollection").label())
 {
-   
   edm::Service<TFileService> fs;
-  demohisto = fs->make<TProfile>("recogen" , "recogen" , 20 , 0 , 100 );
+  histo = fs->make<TProfile>("recogen", "recogen" , 7 , 30 , 100 );
 
 }
 
@@ -112,7 +113,7 @@ DemoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
    using namespace edm;
 
 Handle<reco::PFJetCollection> recojets;
-iEvent.getByLabel("ak5PFJets", recojets); 
+iEvent.getByLabel(jetCollection.c_str(), recojets);
 
 Handle<reco::GenJetCollection> genjets;
 iEvent.getByLabel("ak5GenJets", genjets); 
@@ -126,11 +127,13 @@ for (unsigned int r = 0; r < recojets->size(); r++)
             && deltaR(genjets->at(g), recojets->at(r)) < 0.25
         )
         {
-            demohisto->Fill(genjets->at(g).pt(), recojets->at(r).pt()/genjets->at(g).pt());
+            histo->Fill(genjets->at(g).pt(), recojets->at(r).pt()/genjets->at(g).pt());
             break;
         }
     }
 }
+
+
 #ifdef THIS_IS_AN_EVENT_EXAMPLE
    Handle<ExampleData> pIn;
    iEvent.getByLabel("example",pIn);
