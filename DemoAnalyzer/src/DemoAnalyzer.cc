@@ -193,6 +193,7 @@ for (unsigned int g = 0; g < genjets->size(); g++)
     {
         if (genjets->at(g).pt() > 20
             && (recojets->at(r).pt() > 12)
+            && (std::abs(recojets->at(r).eta()) < 1.3)
             && deltaR(genjets->at(g), recojets->at(r)) < 0.25
         )
         {
