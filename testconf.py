@@ -1,4 +1,24 @@
 import FWCore.ParameterSet.Config as cms
+from FWCore.ParameterSet.VarParsing import VarParsing
+
+# configure input file
+opt = VarParsing ('analysis')
+opt.register ('sample', 'dy', VarParsing.multiplicity.singleton,
+            VarParsing.varType.string, "qcd or dy")
+opt.parseArguments()
+
+files_dict = {
+#    'dy':'file:/storage/8/dhaitz/DYJetsToLL_M-50_TuneZ2Star_8TeV-madgraph-tarball__Summer12_DR53X-PU_RD1_START53_V7N-v1__AODSIM.root',
+    'dy':'file:/storage/8/dhaitz/testfiles/DYJetsToLL_M-50_TuneZ2Star_8TeV-madgraph-tarball__Summer12_DR53X-PU_S10_START53_V7A-v1__AODSIM.root',
+#    'qcd':'file:/storage/8/dhaitz/testfiles/QCD_Pt-15to3000_TuneZ2star_Flat_8TeV_pythia6__Summer12_DR53X-PU_RD1_START53_V7N-v1__AODSIM.root',
+    'qcd':'file:/storage/8/dhaitz/testfiles/QCD_Pt-15to3000_TuneZ2star_Flat_8TeV_pythia6__Summer12_DR53X-PU_S10_START53_V7A-v1__AODSIM.root',
+    'qcdnopu':'file:/storage/8/dhaitz/testfiles/QCD_Pt-15to3000_TuneZ2star_Flat_8TeV_pythia6--Summer12_DR53X-NoPileUp_START53_V7N-v1--AODSIM.root',
+    'dymm': 'file:/storage/8/dhaitz/DYToMuMu_M-20_CT10_TuneZ2star_v2_8TeV-powheg-pythia6__Summer12_DR53X-PU_RD1_START53_V7N-v1__AODSIM.root',
+    'tt': 'file:/storage/8/dhaitz/testfiles/TTJets_FullLeptMGDecays_8TeV-madgraph__Summer12_DR53X-PU_RD1_START53_V7N-v1__AODSIM.root',
+    'powheg': 'file:/storage/8/dhaitz/testfiles/DYToEE_M-20_CT10_TuneZ2star_8TeV-powheg-pythia6--Summer12_DR53X-PU_S10_START53_V7A-v1--AODSIM.root',
+    'ww': 'file:/storage/8/dhaitz/WW_TuneZ2star_8TeV_pythia6_tauola__Summer12_DR53X-PU_S10_START53_V7A-v1__AODSIM.root',
+    'qcd3050': 'file:/storage/8/dhaitz/testfiles/QCD_Pt-30to50_TuneZ2star_8TeV_pythia6__Summer12_DR53X-PU_S10_START53_V7A-v2__AODSIM.root',
+}
 
 process = cms.Process("Demo")
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
@@ -9,14 +29,10 @@ process.GlobalTag.globaltag = 'START53_V27::All'
 
 
 process.source = cms.Source("PoolSource", fileNames = cms.untracked.vstring(
-    #'file:/storage/8/dhaitz/DYJetsToLL_M-50_TuneZ2Star_8TeV-madgraph-tarball__Summer12_DR53X-PU_RD1_START53_V7N-v1__AODSIM.root'
-    #'file:/storage/8/dhaitz/testfiles/QCD_Pt-15to3000_TuneZ2star_Flat_8TeV_pythia6--Summer12_DR53X-NoPileUp_START53_V7N-v1--AODSIM.root'
+    #''
     #'file:/storage/8/dhaitz/testfiles/QCD_Pt_30_80_EMEnriched_TuneZ2star_8TeV_pythia6--Summer12_DR53X-PU_S10_START53_V7A-v1--AODSIM.root'
-    #'file:/storage/8/dhaitz/testfiles/DYToEE_M-20_CT10_TuneZ2star_8TeV-powheg-pythia6--Summer12_DR53X-PU_S10_START53_V7A-v1--AODSIM.root'
-    #'file:/storage/8/dhaitz/testfiles/TTJets_FullLeptMGDecays_8TeV-madgraph__Summer12_DR53X-PU_RD1_START53_V7N-v1__AODSIM.root'
-    'file:/storage/8/dhaitz/testfiles/QCD_Pt-15to3000_TuneZ2star_Flat_8TeV_pythia6__Summer12_DR53X-PU_RD1_START53_V7N-v1__AODSIM.root'
+  files_dict[opt.sample]
 ))
-
 
 
 # corrected jets
@@ -58,7 +74,7 @@ process.raw = cms.EDAnalyzer('DemoAnalyzer',
 )
 
 process.TFileService = cms.Service("TFileService",
-        fileName = cms.string('recogen.root')
+        fileName = cms.string('recogen_%s.root' % opt.sample)
 )
 
 process.p = cms.Path(
