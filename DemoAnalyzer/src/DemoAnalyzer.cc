@@ -193,6 +193,16 @@ Handle<reco::GenJetCollection> genjets;
 iEvent.getByLabel("ak5GenJetsNoNu", genjets);
 
 
+Handle<reco::GenParticleCollection> genparticles;
+iEvent.getByLabel("genParticles", genparticles);
+std::vector<reco::GenParticle> leptons;
+
+for (unsigned int i=0; i < genparticles->size(); i++)
+{
+    if (leptons.size() <3 &&  i>5 && std::abs(genparticles->at(i).pdgId()) <20 && std::abs(genparticles->at(i).pdgId())>10)
+        leptons.push_back(genparticles->at(i));
+}
+
 ngenjets->Fill(genjets->size());
 nrecojets->Fill(recojets->size());
 
@@ -207,6 +217,7 @@ for (unsigned int g = 0; g < genjets->size(); g++)
             && (recojets->at(r).pt() > 12)
             && (std::abs(recojets->at(r).eta()) < 1.3)
             && deltaR(genjets->at(g), recojets->at(r)) < 0.25
+            //&& (deltaR(genjets->at(g), leptons.at(0)) > 0.5 && deltaR(genjets->at(g), leptons.at(1)) > 0.5)
         )
         {
             recogen_genpt->Fill(genjets->at(g).pt(), recojets->at(r).pt()/genjets->at(g).pt());
