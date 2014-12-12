@@ -73,38 +73,11 @@ class DemoAnalyzer : public edm::EDAnalyzer {
 
       // ----------member data ---------------------------
 
+  TProfile *hasmatch_genpt;
   TProfile *recogen_genpt;
-  TProfile *npv_genpt;
-  TH1D *recogen3040;
-  TH1D *recogen5080;
-  TH1D *recogen100;
-  TH1D *ids2030;
-  TH1D *recopt;
-  TProfile *recogen_npv;
-
-  TH1D *ngenjets;
-  TH1D *nrecojets;
-  TH1D *njetsRGratio;
-
-  //reco jet properties
-  TProfile *mu_genpt;
-  TProfile *e_genpt;
-  TProfile *ph_genpt;
-  TProfile *chargedHad_genpt;
-  TProfile *neutralHad_genpt;
-
-  TProfile *nCharged_genpt;
-  TProfile *nConst_genpt;
-
-  //gen
-  TProfile *emGen_genpt;
-  TProfile *hadGen_genpt;
-  TProfile *recogen_emGen;
-  TProfile *recogen_hadGen;
 
   std::string jetCollection;
 
-  std::vector<int> m_idvector;
 
 };
 
@@ -122,45 +95,13 @@ class DemoAnalyzer : public edm::EDAnalyzer {
 DemoAnalyzer::DemoAnalyzer(const edm::ParameterSet& iConfig):
 jetCollection(iConfig.getParameter<edm::InputTag>("jetCollection").label())
 {
-    m_idvector =   {11, 13, 111, 130, 211, 2112, 22, 2212, 310, 3112, 3122, 321, 3222, 3312, 3322};
-
+    edm::Service<TFileService> fs;
     int min = 20;
     int max = 100;
     int nbins = 8;
 
-    edm::Service<TFileService> fs;
     recogen_genpt = fs->make<TProfile>("recogen_genpt", "recogen_genpt", nbins, min, max);
-    recopt = fs->make<TH1D>("recopt", "recopt", 20, 0, 100);
-    npv_genpt = fs->make<TProfile>("npv", "npv", nbins, min, max);
-
-    recogen3040 = fs->make<TH1D>("recogen3040", "recogen3040" , 30 , 0 , 3);
-    recogen5080 = fs->make<TH1D>("recogen5080", "recogen5080" , 30 , 0 , 3);
-    recogen100 = fs->make<TH1D>("recogen100", "recogen100" , 30 , 0 , 3);
-
-    ids2030 = fs->make<TH1D>("ids2030", "ids2030", 20, -0.5, 19.5);
-    recogen_npv = fs->make<TProfile>("recogen_npv", "recogen_npv", 7, -0.5, 34.5);
-
-    ngenjets = fs->make<TH1D>("ngenjets", "ngenjets", 100, -0.5, 99.5);
-    nrecojets = fs->make<TH1D>("nrecojets", "nrecojets", 100, -0.5, 99.5);
-    njetsRGratio = fs->make<TH1D>("njetsratio", "njetsratio", 100, -0.5, 99.5);
-
-    //gen jet
-    emGen_genpt = fs->make<TProfile>("emGen", "emGen" , nbins, min, max);
-    hadGen_genpt = fs->make<TProfile>("hadGen", "hadGen", nbins, min, max);
-
-    // recogen as function of gen composition
-    recogen_emGen = fs->make<TProfile>("recogen_emGen", "recogen_emGen" , 10 , 0 , 1);
-    recogen_hadGen = fs->make<TProfile>("recogen_hadGen", "recogen_hadGen" , 10 , 0 , 1);
-
-    //reco jet properties
-    mu_genpt = fs->make<TProfile>("mu", "mu", nbins, min, max);
-    chargedHad_genpt = fs->make<TProfile>("chargedHad", "chargedHad", nbins, min, max);
-    neutralHad_genpt = fs->make<TProfile>("neutralHad", "neutralHad", nbins, min, max);
-    e_genpt = fs->make<TProfile>("e", "e", nbins, min, max);
-    ph_genpt = fs->make<TProfile>("ph", "ph", nbins, min, max);
-
-    nConst_genpt = fs->make<TProfile>("nConst", "nConst", nbins, min, max);
-    nCharged_genpt = fs->make<TProfile>("nCharged", "nCharged", nbins, min, max);
+    hasmatch_genpt = fs->make<TProfile>("hasmatch_genpt", "hasmatch_genpt", nbins, min, max);
 }
 
 
@@ -183,8 +124,8 @@ DemoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    using namespace edm;
 
-Handle<reco::VertexCollection> vertices;
-iEvent.getByLabel("offlinePrimaryVertices", vertices);
+//Handle<reco::VertexCollection> vertices;
+//iEvent.getByLabel("offlinePrimaryVertices", vertices);
 
 Handle<reco::PFJetCollection> recojets;
 iEvent.getByLabel(jetCollection.c_str(), recojets);
@@ -193,78 +134,33 @@ Handle<reco::GenJetCollection> genjets;
 iEvent.getByLabel("ak5GenJetsNoNu", genjets);
 
 
-Handle<reco::GenParticleCollection> genparticles;
-iEvent.getByLabel("genParticles", genparticles);
-std::vector<reco::GenParticle> leptons;
+//Handle<reco::GenParticleCollection> genparticles;
+//iEvent.getByLabel("genParticles", genparticles);
 
-for (unsigned int i=0; i < genparticles->size(); i++)
-{
-    if (leptons.size() <3 &&  i>5 && std::abs(genparticles->at(i).pdgId()) <20 && std::abs(genparticles->at(i).pdgId())>10)
-        leptons.push_back(genparticles->at(i));
-}
+bool hasmatch;
 
-ngenjets->Fill(genjets->size());
-nrecojets->Fill(recojets->size());
-
-if (genjets->size() > 0)
-njetsRGratio->Fill(recojets->size()/genjets->size());
+if (genjets->size() < 1)
+    return;
 
 for (unsigned int g = 0; g < genjets->size(); g++)
 {
+    hasmatch = false;
     for (unsigned int r = 0; r < recojets->size(); r++)
     {
         if (genjets->at(g).pt() > 20
             && (recojets->at(r).pt() > 12)
             && (std::abs(recojets->at(r).eta()) < 1.3)
             && deltaR(genjets->at(g), recojets->at(r)) < 0.25
-            //&& (deltaR(genjets->at(g), leptons.at(0)) > 0.5 && deltaR(genjets->at(g), leptons.at(1)) > 0.5)
         )
         {
+            //match
             recogen_genpt->Fill(genjets->at(g).pt(), recojets->at(r).pt()/genjets->at(g).pt());
-            npv_genpt->Fill(genjets->at(g).pt(), vertices->size());
-            recogen_npv->Fill(vertices->size(), recojets->at(r).pt()/genjets->at(g).pt());
-
-            recopt->Fill(recojets->at(r).pt());
-
-            //reco jet properties
-            mu_genpt->Fill(genjets->at(g).pt(), recojets->at(r).muonEnergyFraction());
-            e_genpt->Fill(genjets->at(g).pt(), recojets->at(r).electronEnergyFraction());
-            ph_genpt->Fill(genjets->at(g).pt(), recojets->at(r).photonEnergyFraction());
-            chargedHad_genpt->Fill(genjets->at(g).pt(), recojets->at(r).chargedHadronEnergyFraction());
-            neutralHad_genpt->Fill(genjets->at(g).pt(), recojets->at(r).neutralHadronEnergyFraction());
-            nConst_genpt->Fill(genjets->at(g).pt(), recojets->at(r).nConstituents());
-            nCharged_genpt->Fill(genjets->at(g).pt(), recojets->at(r).chargedMultiplicity());
-
-            //gen jet properties
-            emGen_genpt->Fill(genjets->at(g).pt(), genjets->at(g).emEnergy()/genjets->at(g).energy());
-            hadGen_genpt->Fill(genjets->at(g).pt(), genjets->at(g).hadEnergy()/genjets->at(g).energy());
-
-            recogen_emGen->Fill(genjets->at(g).emEnergy()/genjets->at(g).energy(), recojets->at(r).pt()/genjets->at(g).pt());
-            recogen_hadGen->Fill(genjets->at(g).hadEnergy()/genjets->at(g).energy(), recojets->at(r).pt()/genjets->at(g).pt());
-
-            //only fill these histograms if gen jet pt between 20 and 30
-            if (genjets->at(g).pt() > 30 && genjets->at(g).pt() < 40)
-            {
-                recogen3040->Fill(recojets->at(r).pt()/genjets->at(g).pt());
-
-                // ids
-                std::vector< const reco::GenParticle * > gens = genjets->at(g).getGenConstituents();
-                for (unsigned int i = 0; i < gens.size(); i++)
-                {
-                    std::vector<int>::iterator it = find(m_idvector.begin(), m_idvector.end(), std::abs(gens.at(i)->pdgId()));
-                    unsigned int pos = it - m_idvector.begin();
-                    if (pos >= m_idvector.size())
-                        std::cout << std::abs(gens.at(i)->pdgId()) << std::endl;
-                    else
-                        ids2030->Fill(pos);
-                }
-            }
-            else if (genjets->at(g).pt() > 50 && genjets->at(g).pt() < 80)
-                recogen5080->Fill(recojets->at(r).pt()/genjets->at(g).pt());
-            else if (genjets->at(g).pt() > 100)
-                recogen100->Fill(recojets->at(r).pt()/genjets->at(g).pt());
+            hasmatch = true;
+            break;
         }
     }
+    hasmatch_genpt->Fill(genjets->at(g).pt(), hasmatch);
+
 }
 
 
