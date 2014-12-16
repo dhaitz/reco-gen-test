@@ -37,6 +37,7 @@
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 #include "TProfile.h"
+#include "TNtuple.h"
 
 
 #include <DataFormats/Math/interface/deltaR.h>
@@ -70,13 +71,16 @@ class DemoAnalyzer : public edm::EDAnalyzer {
       virtual void endRun(edm::Run const&, edm::EventSetup const&);
       virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&);
       virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&);
-
+      virtual int matchParton(reco::GenJet const&, edm::Handle<reco::GenParticleCollection> const&);
+      virtual bool matchRecoGen(reco::PFJet const &, reco::GenJet const&);
       // ----------member data ---------------------------
 
   TProfile *hasmatch_genpt;
-  TProfile *recogen_genpt;
+  TNtuple *ntuple;
 
   std::string jetCollection;
+  std::string folder;
+  bool m_leptonIso;
 
 
 };
@@ -93,24 +97,26 @@ class DemoAnalyzer : public edm::EDAnalyzer {
 // constructors and destructor
 //
 DemoAnalyzer::DemoAnalyzer(const edm::ParameterSet& iConfig):
-jetCollection(iConfig.getParameter<edm::InputTag>("jetCollection").label())
+jetCollection(iConfig.getParameter<edm::InputTag>("jetCollection").label()),
+folder(iConfig.getParameter<edm::InputTag>("folder").label()),
+m_leptonIso(iConfig.getUntrackedParameter<bool>("leptonIso"))
 {
     edm::Service<TFileService> fs;
     int min = 20;
     int max = 100;
     int nbins = 8;
 
-    recogen_genpt = fs->make<TProfile>("recogen_genpt", "recogen_genpt", nbins, min, max);
+    ntuple = fs->make<TNtuple>(folder.c_str(), folder.c_str(), 
+    "genpt:recopt:flavour:rho:recoarea:nconst:spread:zmass:g:r:npv:iso:ptdist:maxdist");
+
     hasmatch_genpt = fs->make<TProfile>("hasmatch_genpt", "hasmatch_genpt", nbins, min, max);
 }
 
 
 DemoAnalyzer::~DemoAnalyzer()
 {
- 
-   // do anything here that needs to be done at desctruction time
-   // (e.g. close files, deallocate resources etc.)
-
+    // do anything here that needs to be done at desctruction time
+    // (e.g. close files, deallocate resources etc.)
 }
 
 
@@ -124,8 +130,12 @@ DemoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    using namespace edm;
 
-//Handle<reco::VertexCollection> vertices;
-//iEvent.getByLabel("offlinePrimaryVertices", vertices);
+
+Handle<reco::VertexCollection> vertices;
+iEvent.getByLabel("offlinePrimaryVertices", vertices);
+
+Handle<double> rho;
+iEvent.getByLabel("kt6PFJets", "rho", rho);
 
 Handle<reco::PFJetCollection> recojets;
 iEvent.getByLabel(jetCollection.c_str(), recojets);
@@ -134,34 +144,84 @@ Handle<reco::GenJetCollection> genjets;
 iEvent.getByLabel("ak5GenJetsNoNu", genjets);
 
 
-//Handle<reco::GenParticleCollection> genparticles;
-//iEvent.getByLabel("genParticles", genparticles);
+Handle<reco::GenParticleCollection> genparticles;
+iEvent.getByLabel("genParticles", genparticles);
+
+
 
 bool hasmatch;
+int flavour;
+float zmass;
+int iso = 1;
 
 if (genjets->size() < 1)
     return;
 
+std::vector<reco::GenParticle> leptons;
+
+//std::cout << "\n\n\n" << std::endl;/////////
+for (unsigned int i=0; i < genparticles->size(); i++)
+{
+    //std::cout << genparticles->at(i).pdgId() << " ";/////////
+    if (leptons.size() <2 &&  i>5 && std::abs(genparticles->at(i).pdgId()) <20 && std::abs(genparticles->at(i).pdgId())>10)
+        leptons.push_back(genparticles->at(i));
+}
+//std::cout << "\n";////////
+
+//for (unsigned int i=0; i < leptons.size(); i++){
+//std::cout << leptons.at(i).pdgId()<< std::endl;////////
+//}
+
+
 for (unsigned int g = 0; g < genjets->size(); g++)
 {
+
+    flavour = DemoAnalyzer::matchParton(genjets->at(g), genparticles);
+
+
     hasmatch = false;
     for (unsigned int r = 0; r < recojets->size(); r++)
     {
-        if (genjets->at(g).pt() > 20
-            && (recojets->at(r).pt() > 12)
-            && (std::abs(recojets->at(r).eta()) < 1.3)
-            && deltaR(genjets->at(g), recojets->at(r)) < 0.25
-        )
+        if (DemoAnalyzer::matchRecoGen(recojets->at(r), genjets->at(g)))
         {
+            if (m_leptonIso && leptons.size() > 1)
+            {
+                if ((deltaR(genjets->at(g), leptons.at(0)) < 0.5) || (deltaR(genjets->at(g), leptons.at(1)) < 0.5))
+                    iso=0;
+            }
+
             //match
-            recogen_genpt->Fill(genjets->at(g).pt(), recojets->at(r).pt()/genjets->at(g).pt());
             hasmatch = true;
-            break;
+
+            //iterate over gen particles to get Z mass
+            zmass = 0;
+            for (unsigned int p = 0; p < genparticles->size(); p++)
+            {
+                if (genparticles->at(p).pdgId() == 23)
+                    zmass = genparticles->at(p).mass();
+            }
+
+            ntuple->Fill(
+                genjets->at(g).pt(),
+                recojets->at(r).pt(),
+                flavour,
+                (*rho),
+                recojets->at(r).jetArea(),
+                recojets->at(r).nConstituents(),
+                recojets->at(r).constituentEtaPhiSpread(),
+                zmass,
+                g,
+                r,
+                vertices->size(),
+                iso,
+                recojets->at(r).constituentPtDistribution(),
+                recojets->at(r).maxDistance()
+            );
         }
     }
     hasmatch_genpt->Fill(genjets->at(g).pt(), hasmatch);
-
 }
+
 
 
 #ifdef THIS_IS_AN_EVENT_EXAMPLE
@@ -175,6 +235,43 @@ for (unsigned int g = 0; g < genjets->size(); g++)
    ESHandle<SetupData> pSetup;
    iSetup.get<SetupRecord>().get(pSetup);
 #endif
+}
+
+
+//this function matches a parton to a genjet
+int DemoAnalyzer::matchParton(const reco::GenJet& genjet, const edm::Handle<reco::GenParticleCollection>& genparticles)
+{
+    std::vector<reco::GenParticle> matching_partons;
+    //check for parton flavour   phys def
+    for (unsigned int p = 0; p < genparticles->size(); p++)
+    {
+        if (
+            (
+                std::abs(genparticles->at(p).pdgId()) > 0
+                && (genparticles->at(p).status() == 3)
+                && (
+                    (std::abs(genparticles->at(p).pdgId()) < 6)
+                    || (std::abs(genparticles->at(p).pdgId()) == 21)
+                )
+            )
+            && (deltaR(genjet, genparticles->at(p))<0.3)
+        )
+            matching_partons.push_back(genparticles->at(p));
+    }
+    if (matching_partons.size() == 1)
+        return std::abs(matching_partons.at(0).pdgId());
+    else
+        return 0;
+}
+
+bool DemoAnalyzer::matchRecoGen(const reco::PFJet& recojet, const reco::GenJet& genjet)
+{
+    return (
+        genjet.pt() > 20
+        && (recojet.pt() > 12)
+        //&& (std::abs(recojet.eta()) < 1.3)
+        && (deltaR(genjet, recojet) < 0.25)
+    );
 }
 
 
