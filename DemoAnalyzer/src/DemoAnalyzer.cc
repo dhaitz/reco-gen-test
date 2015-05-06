@@ -107,7 +107,7 @@ m_leptonIso(iConfig.getUntrackedParameter<bool>("leptonIso"))
     int nbins = 8;
 
     ntuple = fs->make<TNtuple>(folder.c_str(), folder.c_str(), 
-    "genpt:recopt:flavour:rho:recoarea:nconst:spread:zmass:g:r:npv:iso:ptdist:maxdist");
+    "genpt:recopt:flavour:rho:recoarea:nconst:spread:zmass:g:r:npv:iso:ptdist:maxdist:eta");
 
     hasmatch_genpt = fs->make<TProfile>("hasmatch_genpt", "hasmatch_genpt", nbins, min, max);
 }
@@ -176,7 +176,6 @@ for (unsigned int i=0; i < genparticles->size(); i++)
 for (unsigned int g = 0; g < genjets->size(); g++)
 {
 
-    flavour = DemoAnalyzer::matchParton(genjets->at(g), genparticles);
 
 
     hasmatch = false;
@@ -200,6 +199,7 @@ for (unsigned int g = 0; g < genjets->size(); g++)
                 if (genparticles->at(p).pdgId() == 23)
                     zmass = genparticles->at(p).mass();
             }
+            flavour = DemoAnalyzer::matchParton(genjets->at(g), genparticles);
 
             ntuple->Fill(
                 genjets->at(g).pt(),
@@ -215,7 +215,8 @@ for (unsigned int g = 0; g < genjets->size(); g++)
                 vertices->size(),
                 iso,
                 recojets->at(r).constituentPtDistribution(),
-                recojets->at(r).maxDistance()
+                recojets->at(r).maxDistance(),
+                genjets->at(g).eta()
             );
         }
     }
@@ -269,7 +270,7 @@ bool DemoAnalyzer::matchRecoGen(const reco::PFJet& recojet, const reco::GenJet& 
     return (
         genjet.pt() > 20
         && (recojet.pt() > 12)
-        //&& (std::abs(recojet.eta()) < 1.3)
+        && (std::abs(recojet.eta()) < 1.3)
         && (deltaR(genjet, recojet) < 0.25)
     );
 }
